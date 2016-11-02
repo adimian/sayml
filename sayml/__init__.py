@@ -27,10 +27,11 @@ def relations(model, registry):
 
 
 def build(session, models, data):
-    registry = dict([(x.__mapper__.class_.__name__, x) for x in models])
-    root = list(data.keys())[0]
-    model = registry[root]
-    return build_tree(session, registry, data[root], model)
+    with session.no_autoflush:
+        registry = dict([(x.__mapper__.class_.__name__, x) for x in models])
+        root = list(data.keys())[0]
+        model = registry[root]
+        return build_tree(session, registry, data[root], model)
 
 
 def build_tree(session, registry, data, model):
@@ -46,7 +47,7 @@ def build_tree(session, registry, data, model):
         if a in data:
             kwargs[a] = data[a]
 
-    obj = model(**kwargs)
+    obj = upsert(session, model, **kwargs)
 
     for r, k in rels:
         if r in data:

@@ -11,6 +11,7 @@ here = osp.dirname(__file__)
 def db():
     app = flask.Flask('test')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SQLALCHEMY_ECHO'] = False
     db = flask_sqlalchemy.SQLAlchemy(app)
 
     class Product(db.Model):
@@ -26,7 +27,6 @@ def db():
                                 db.ForeignKey('customer.id'),
                                 nullable=False)
         customer = db.relationship('Customer')
-        lines = db.relationship('TicketLine')
 
     class TicketLine(db.Model):
         __tablename__ = 'ticket_line'
@@ -36,7 +36,7 @@ def db():
         ticket_id = db.Column(db.Integer,
                               db.ForeignKey('ticket.id'),
                               nullable=False)
-        ticket = db.relationship('Ticket')
+        ticket = db.relationship('Ticket', backref=db.backref('lines'))
 
         product_id = db.Column(db.Integer,
                                db.ForeignKey('product.id'),
@@ -63,7 +63,11 @@ def data():
 def test_create(db, data):
     db['db'].create_all()
     session = db['db'].session
-    ticket = build(session, db['models'], data)
+    build(session, db['models'], data)
     session.commit()
 
+    model = db['models'][1]
+    ticket = session.query(model).one()
     assert ticket.customer.name == 'Mr Customer'
+    assert ticket.lines[-1].quantity == 5
+    assert ticket.lines[-1].product.name == 'Cereal Box'
