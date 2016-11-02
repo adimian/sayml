@@ -1,4 +1,8 @@
 from sqlalchemy.inspection import inspect
+import datetime
+import json
+import logging
+logger = logging.getLogger(__name__)
 
 
 def get_class_by_tablename(name, registry):
@@ -7,11 +11,28 @@ def get_class_by_tablename(name, registry):
             return c
 
 
-def upsert(session, model, **kwargs):
+def compute_key(d):
+    d = d.copy()
+    for k, v in d.items():
+        if isinstance(v, (datetime.date, datetime.datetime)):
+            d[k] = v.isoformat()
+    return json.dumps(d)
+
+
+def upsert(session, model, cache, **kwargs):
+    key = (model, compute_key(kwargs))
     obj = session.query(model).filter_by(**kwargs).one_or_none()
     if obj is None:
-        obj = model(**kwargs)
-        session.add(obj)
+        obj = cache.get(key)
+        if obj is None:
+            obj = model(**kwargs)
+            session.add(obj)
+            cache[key] = obj
+            logger.debug('created {}'.format(obj))
+        else:
+            logger.debug('fetched {} from cache'.format(obj))
+    else:
+        logger.debug('fetched {} from DB'.format(obj))
     return obj
 
 
@@ -28,16 +49,17 @@ def relations(model, registry):
 
 def build(session, models, data):
     with session.no_autoflush:
+        cache = {}
         registry = dict([(x.__mapper__.class_.__name__, x) for x in models])
         root = list(data.keys())[0]
         model = registry[root]
-        return build_tree(session, registry, data[root], model)
+        return build_tree(session, registry, data[root], model, cache)
 
 
-def build_tree(session, registry, data, model):
+def build_tree(session, registry, data, model, cache):
 
     if isinstance(data, (list, tuple)):
-        return [build_tree(session, registry, d, model) for d in data]
+        return [build_tree(session, registry, d, model, cache) for d in data]
 
     attrs = attributes(model)
     rels = relations(model, registry)
@@ -47,11 +69,11 @@ def build_tree(session, registry, data, model):
         if a in data:
             kwargs[a] = data[a]
 
-    obj = upsert(session, model, **kwargs)
+    obj = upsert(session, model, cache, **kwargs)
 
     for r, k in rels:
         if r in data:
-            sub = build_tree(session, registry, data[r], k)
+            sub = build_tree(session, registry, data[r], k, cache)
             setattr(obj, r, sub)
 
     return obj

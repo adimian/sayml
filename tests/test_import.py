@@ -23,6 +23,7 @@ def db():
         __tablename__ = 'ticket'
 
         id = db.Column(db.Integer, primary_key=True)
+        date = db.Column(db.Date)
         customer_id = db.Column(db.Integer,
                                 db.ForeignKey('customer.id'),
                                 nullable=False)
@@ -60,6 +61,12 @@ def data():
     return load(open(osp.join(here, 'data', 'create.yml')))
 
 
+@pytest.fixture
+def data_two():
+    from yaml import load
+    return load(open(osp.join(here, 'data', 'create_two.yml')))
+
+
 def test_create(db, data):
     db['db'].create_all()
     session = db['db'].session
@@ -71,3 +78,13 @@ def test_create(db, data):
     assert ticket.customer.name == 'Mr Customer'
     assert ticket.lines[-1].quantity == 5
     assert ticket.lines[-1].product.name == 'Cereal Box'
+
+
+def test_create_two(db, data_two):
+    db['db'].create_all()
+    session = db['db'].session
+    build(session, db['models'], data_two)
+    session.commit()
+
+    model = db['models'][1]
+    assert session.query(model).count() == 2

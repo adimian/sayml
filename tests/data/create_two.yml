@@ -1,0 +1,16 @@
+Customer:
+    name: Mr Nerd
+    purchases:
+        - lines: 
+            - product: 
+                name: Computer
+              quantity: 2
+          date: 2016-01-01
+        - lines: 
+            - product: 
+                name: Computer
+              quantity: 4
+            - product: 
+                name: Cereal Box
+              quantity: 5
+          date: 2016-01-02
