@@ -1,0 +1,12 @@
+Ticket:
+    customer: 
+        name: Mr Customer
+    lines:
+        - product: 
+            name: Computer
+        - product: 
+            name: Broom
+        - product: 
+            name: Cereal Box
+          quantity: 5
+    
