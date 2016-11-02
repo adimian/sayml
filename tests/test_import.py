@@ -86,5 +86,6 @@ def test_create_two(db, data_two):
     build(session, db['models'], data_two)
     session.commit()
 
-    model = db['models'][1]
-    assert session.query(model).count() == 2
+    Product, Ticket, TicketLine, Customer = db['models']
+    assert session.query(Ticket).count() == 2
+    assert session.query(Product).count() == 2
