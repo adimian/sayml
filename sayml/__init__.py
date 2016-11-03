@@ -1,4 +1,5 @@
 from sqlalchemy.inspection import inspect
+from sqlalchemy.engine.reflection import Inspector
 import datetime
 import json
 import logging
@@ -25,13 +26,38 @@ def compute_key(d):
 
 def upsert(session, model, cache, **kwargs):
     key = (model, compute_key(kwargs))
+    inspector = Inspector.from_engine(session.get_bind())
+    candidate_keys = set([key])
+
+    for constraint in inspector.get_unique_constraints(model.__tablename__):
+        columns = constraint['column_names']
+        unique_kwargs = {k: v for (k, v) in kwargs.items() if k in columns}
+
+        obj = session.query(model).filter_by(**unique_kwargs).one_or_none()
+        if obj is not None:
+            return obj
+        else:
+            k = (model, compute_key(unique_kwargs))
+            if k in cache:
+                return cache[k]
+            candidate_keys.add(k)
+
     obj = session.query(model).filter_by(**kwargs).one_or_none()
     if obj is None:
         obj = cache.get(key)
         if obj is None:
             obj = model(**kwargs)
+            logger.debug('having to create a {} with {}'.format(model,
+                                                                repr(kwargs)))
             session.add(obj)
-            cache[key] = obj
+            for k in candidate_keys:
+                cache[k] = obj
+        else:
+            logger.debug('found a {} with {} in cache'.format(model,
+                                                              repr(kwargs)))
+    else:
+        logger.debug('found a {} with {} in DB'.format(model,
+                                                       repr(kwargs)))
     return obj
 
 
@@ -42,7 +68,7 @@ def attributes(model):
 
 
 def relations(model, registry):
-    return [(k, get_class_by_tablename(v.target.name, registry)) 
+    return [(k, get_class_by_tablename(v.target.name, registry))
             for k, v in inspect(model).relationships.items()]
 
 
@@ -59,7 +85,8 @@ def build_tree(session, registry, data, model, cache):
     name = model.__mapper__.class_.__name__
 
     if data is None:
-        raise MalformedDocument('No data provided when creating a {}'.format(name))
+        raise MalformedDocument(
+            'No data provided when creating a {}'.format(name))
 
     if isinstance(data, (list, tuple)):
         return [build_tree(session, registry, d, model, cache) for d in data]

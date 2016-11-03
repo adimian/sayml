@@ -9,6 +9,7 @@ Customer:
         - lines: 
             - product: 
                 name: Computer
+                color: blue
               quantity: 4
             - product: 
                 name: Cereal Box

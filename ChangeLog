@@ -1,6 +1,10 @@
 CHANGES
 =======
 
+1.0.0
+-----
+
+* added more error handling
 * better test
 * handle same-session cache
 * actually make this work
