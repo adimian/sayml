@@ -32,15 +32,16 @@ def upsert(session, model, cache, **kwargs):
     for constraint in inspector.get_unique_constraints(model.__tablename__):
         columns = constraint['column_names']
         unique_kwargs = {k: v for (k, v) in kwargs.items() if k in columns}
-
-        obj = session.query(model).filter_by(**unique_kwargs).one_or_none()
-        if obj is not None:
-            return obj
-        else:
-            k = (model, compute_key(unique_kwargs))
-            if k in cache:
-                return cache[k]
-            candidate_keys.add(k)
+        if unique_kwargs:
+            print('searching a {} with {}'.format(model, repr(unique_kwargs)))
+            obj = session.query(model).filter_by(**unique_kwargs).one_or_none()
+            if obj is not None:
+                return obj
+            else:
+                k = (model, compute_key(unique_kwargs))
+                if k in cache:
+                    return cache[k]
+                candidate_keys.add(k)
 
     obj = session.query(model).filter_by(**kwargs).one_or_none()
     if obj is None:
