@@ -5,6 +5,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class MalformedDocument(Exception):
+    pass
+
+
 def get_class_by_tablename(name, registry):
     for c in registry.values():
         if c.__tablename__ == name:
@@ -28,11 +32,6 @@ def upsert(session, model, cache, **kwargs):
             obj = model(**kwargs)
             session.add(obj)
             cache[key] = obj
-            logger.debug('created {}'.format(obj))
-        else:
-            logger.debug('fetched {} from cache'.format(obj))
-    else:
-        logger.debug('fetched {} from DB'.format(obj))
     return obj
 
 
@@ -57,6 +56,10 @@ def build(session, models, data):
 
 
 def build_tree(session, registry, data, model, cache):
+    name = model.__mapper__.class_.__name__
+
+    if data is None:
+        raise MalformedDocument('No data provided when creating a {}'.format(name))
 
     if isinstance(data, (list, tuple)):
         return [build_tree(session, registry, d, model, cache) for d in data]
@@ -74,6 +77,13 @@ def build_tree(session, registry, data, model, cache):
     for r, k in rels:
         if r in data:
             sub = build_tree(session, registry, data[r], k, cache)
-            setattr(obj, r, sub)
+            try:
+                setattr(obj, r, sub)
+            except AttributeError as e:
+                if '_sa_instance_state' in str(e):
+                    msg = ('Trying to use a list '
+                           'in place for a scalar '
+                           'when creating a {}'.format(name))
+                    raise MalformedDocument(msg)
 
     return obj
