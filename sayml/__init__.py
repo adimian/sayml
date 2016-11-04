@@ -69,9 +69,15 @@ def upsert(session, model, cache, **kwargs):
 
 
 def attributes(model):
+
+    rel_columns = set()
+
+    for rel in [x for x in inspect(model).attrs if hasattr(x, 'target')]:
+        rel_columns.update([x.name for x in rel.local_columns])
+
     return [x.key for x in inspect(model).attrs
             if not hasattr(x, 'target')
-            and not x.key.endswith('id')]  # XXX: handle 'id' better (PK, ...)
+            and x not in rel_columns]
 
 
 def relations(model, registry):
