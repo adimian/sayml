@@ -33,7 +33,8 @@ def upsert(session, model, cache, **kwargs):
         columns = constraint['column_names']
         unique_kwargs = {k: v for (k, v) in kwargs.items() if k in columns}
         if unique_kwargs:
-            print('searching a {} with {}'.format(model, repr(unique_kwargs)))
+            logger.debug('searching a {} with {}'.format(
+                model, repr(unique_kwargs)))
             obj = session.query(model).filter_by(**unique_kwargs).one_or_none()
             if obj is not None:
                 return obj
@@ -43,7 +44,12 @@ def upsert(session, model, cache, **kwargs):
                     return cache[k]
                 candidate_keys.add(k)
 
-    obj = session.query(model).filter_by(**kwargs).one_or_none()
+    if kwargs:
+        logger.debug('searching a {} with {}'.format(model, repr(kwargs)))
+        obj = session.query(model).filter_by(**kwargs).one_or_none()
+    else:
+        obj = None
+
     if obj is None:
         obj = cache.get(key)
         if obj is None:
