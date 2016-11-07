@@ -25,9 +25,8 @@ def compute_key(d):
 
 
 def upsert(session, model, cache, **kwargs):
-    key = (model, compute_key(kwargs))
     inspector = Inspector.from_engine(session.get_bind())
-    candidate_keys = set([key])
+    candidate_keys = set()
 
     for constraint in inspector.get_unique_constraints(model.__tablename__):
         columns = constraint['column_names']
@@ -46,29 +45,14 @@ def upsert(session, model, cache, **kwargs):
                     logger.debug('found a {} with UNIQUE {} in cache'.format(
                         model, repr(unique_kwargs)))
                     return cache[k]
-                candidate_keys.add(k)
+                else:
+                    candidate_keys.add(k)
 
-    if kwargs:
-        logger.debug('searching a {} with {}'.format(model, repr(kwargs)))
-        obj = session.query(model).filter_by(**kwargs).one_or_none()
-    else:
-        obj = None
-
-    if obj is None:
-        obj = cache.get(key)
-        if obj is None:
-            obj = model(**kwargs)
-            logger.debug('having to create a {} with {}'.format(model,
-                                                                repr(kwargs)))
-            session.add(obj)
-            for k in candidate_keys:
-                cache[k] = obj
-        else:
-            logger.debug('found a {} with {} in cache'.format(model,
-                                                              repr(kwargs)))
-    else:
-        logger.debug('found a {} with {} in DB'.format(model,
-                                                       repr(kwargs)))
+    obj = model(**kwargs)
+    logger.info('create a {} with {}'.format(model, repr(kwargs)))
+    session.add(obj)
+    for k in candidate_keys:
+        cache[k] = obj
     return obj
 
 
@@ -109,9 +93,7 @@ def build_tree(session, registry, data, model, cache):
         return [build_tree(session, registry, d, model, cache) for d in data]
 
     attrs = attributes(model)
-    logging.debug('attributes: {}'.format(attrs))
     rels = relations(model, registry)
-    logging.debug('relations: {}'.format(rels))
 
     kwargs = {}
     for a in attrs:
@@ -124,7 +106,10 @@ def build_tree(session, registry, data, model, cache):
         if r in data:
             sub = build_tree(session, registry, data[r], k, cache)
             try:
-                setattr(obj, r, sub)
+                if isinstance(getattr(obj, r), list):
+                    getattr(obj, r).extend(sub)
+                else:
+                    setattr(obj, r, sub)
             except AttributeError as e:
                 if '_sa_instance_state' in str(e):
                     msg = ('Trying to use a list '

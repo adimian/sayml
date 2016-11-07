@@ -6,9 +6,6 @@ from sayml import build
 
 here = osp.dirname(__file__)
 
-import logging
-logging.basicConfig(level=logging.DEBUG)
-
 
 @pytest.fixture
 def db():
@@ -93,7 +90,10 @@ def test_create_two(db, data_two):
     Product, Ticket, TicketLine, Customer = db['models']
     assert session.query(Ticket).count() == 2
     assert session.query(Product).count() == 2
+    assert session.query(Customer).count() == 1
 
     build(session, db['models'], data_two)
     session.commit()
+    assert session.query(Customer).count() == 1
+    assert session.query(Ticket).count() == 4
     assert session.query(Product).count() == 2
