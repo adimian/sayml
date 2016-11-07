@@ -30,6 +30,8 @@ def upsert(session, model, cache, **kwargs):
 
     for constraint in inspector.get_unique_constraints(model.__tablename__):
         columns = constraint['column_names']
+        if not all([k in kwargs for k in columns]):
+            continue
         unique_kwargs = {k: v for (k, v) in kwargs.items() if k in columns}
         if unique_kwargs:
             logger.debug('searching a {} with UNIQUE {}'.format(
