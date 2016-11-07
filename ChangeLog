@@ -1,6 +1,11 @@
 CHANGES
 =======
 
+1.0.5
+-----
+
+* don't hard-code ignored columns
+
 1.0.4
 -----
 

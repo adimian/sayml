@@ -33,14 +33,18 @@ def upsert(session, model, cache, **kwargs):
         columns = constraint['column_names']
         unique_kwargs = {k: v for (k, v) in kwargs.items() if k in columns}
         if unique_kwargs:
-            logger.debug('searching a {} with {}'.format(
+            logger.debug('searching a {} with UNIQUE {}'.format(
                 model, repr(unique_kwargs)))
             obj = session.query(model).filter_by(**unique_kwargs).one_or_none()
             if obj is not None:
+                logger.debug('found a {} with UNIQUE {} in DB'.format(
+                    model, repr(unique_kwargs)))
                 return obj
             else:
                 k = (model, compute_key(unique_kwargs))
                 if k in cache:
+                    logger.debug('found a {} with UNIQUE {} in cache'.format(
+                        model, repr(unique_kwargs)))
                     return cache[k]
                 candidate_keys.add(k)
 
@@ -105,7 +109,9 @@ def build_tree(session, registry, data, model, cache):
         return [build_tree(session, registry, d, model, cache) for d in data]
 
     attrs = attributes(model)
+    logging.debug('attributes: {}'.format(attrs))
     rels = relations(model, registry)
+    logging.debug('relations: {}'.format(rels))
 
     kwargs = {}
     for a in attrs:

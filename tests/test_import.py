@@ -6,6 +6,9 @@ from sayml import build
 
 here = osp.dirname(__file__)
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
 
 @pytest.fixture
 def db():
